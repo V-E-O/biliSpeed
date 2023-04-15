@@ -62,21 +62,31 @@ public class MainHook implements IXposedHookLoadPackage {
                                                 Class<?> s0 = param.thisObject.getClass().getDeclaredFields()[0].get(param.thisObject).getClass();
                                                 XposedBridge.log("chosen fields s0: " + s0);
 
-                                                Method[] b = XposedHelpers.findMethodsByExactParameters(s0, void.class, float.class);
-                                                XposedBridge.log("found s0->b count: " + b.length);
-                                                XposedBridge.log("chosen b: " + b[0]);
-                                                XposedBridge.hookMethod(b[0], new XC_MethodHook() {
-                                                    @Override
-                                                    protected void beforeHookedMethod(MethodHookParam param) {
-                                                        float speed = (float) param.args[0];
-                                                        if (speed == 1.0f) {
-                                                            param.args[0] = speedConfig;
+                                                for (Method method : s0.getDeclaredMethods()) {
+                                                    if (void.class != method.getReturnType())
+                                                        continue;
+                                                    if (1 != method.getParameterCount())
+                                                        continue;
+                                                    if (float.class != method.getParameterTypes()[0])
+                                                        continue;
+
+                                                    XposedBridge.log("chosen b: " + method);
+                                                    XposedBridge.hookMethod(method, new XC_MethodHook() {
+                                                        @Override
+                                                        protected void beforeHookedMethod(MethodHookParam param) {
+                                                            float speed = (float) param.args[0];
+                                                            if (speed == 1.0f) {
+                                                                param.args[0] = speedConfig;
+                                                            }
                                                         }
-                                                    }
-                                                });
-                                                first.unhook();
-                                                second.unhook();
-                                                third.unhook();
+                                                    });
+                                                    first.unhook();
+                                                    second.unhook();
+                                                    third.unhook();
+
+                                                    XposedBridge.log("hooked s0->b");
+                                                    break;
+                                                }
                                             }
                                         });
                                         XposedBridge.log("hooked p->onPrepared");
