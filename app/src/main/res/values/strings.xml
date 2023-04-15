@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Bili调速</string>
+    <string name="app_desc">Bili默认播放速度调节</string>
+    <string name="title_activity_main">Bili调速</string>
+</resources>

@@ -1,0 +1,74 @@
+plugins {
+    id 'com.android.application'
+}
+
+def getVersionCode(name) {
+    def parts = name.split("\\.")
+    int hotfix = parts[2] as int
+    int minor = parts[1] as int
+    int major = parts[0] as int
+    def versionCode = major * 1000000 + minor * 1000 + hotfix
+    println('Version Code: ' + versionCode)
+    return versionCode
+}
+
+android {
+    namespace 'com.veo.hook.bili.speed'
+    compileSdkVersion 33
+    defaultConfig {
+        applicationId "com.veo.hook.bili.speed"
+        minSdkVersion 26
+        targetSdkVersion 33
+        versionCode getVersionCode(appVersionName)
+        versionName appVersionName
+    }
+    if (project.hasProperty('releaseStoreFile')) {
+        signingConfigs {
+            config {
+                storeFile = file(project.properties['releaseStoreFile'])
+                storePassword = project.properties['releaseStorePassword']
+                keyAlias = project.properties['releaseKeyAlias']
+                keyPassword = project.properties['releaseKeyPassword']
+            }
+        }
+    }
+    buildTypes {
+        all {
+            if (project.hasProperty('releaseStoreFile')) {
+                signingConfig signingConfigs.config
+            } else {
+                println("using debug sign")
+                signingConfig signingConfigs.debug
+            }
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    buildFeatures {
+        prefab true
+        compose true
+    }
+
+    packagingOptions {
+        exclude 'META-INF/**'
+        exclude 'kotlin/**'
+        exclude 'google/**'
+        exclude '**.bin'
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    compileOnly 'de.robv.android.xposed:api:82'
+}
+
