@@ -14,15 +14,16 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 
 public class MainHook implements IXposedHookLoadPackage {
-    public final static String hookPackage = "tv.danmaku.bili";
+    public final static String hookPackage0 = "tv.danmaku.bili";
+    public final static String hookPackage1 = "com.bilibili.app.in";
     private static XC_MethodHook.Unhook first = null;
     private static XC_MethodHook.Unhook second = null;
     private static XC_MethodHook.Unhook third = null;
 
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
-        if (hookPackage.equals(lpparam.packageName)) {
-            boolean isMainProcess = hookPackage.equals(lpparam.processName);
+        if (hookPackage0.equals(lpparam.packageName) || hookPackage1.equals(lpparam.packageName)) {
+            boolean isMainProcess = hookPackage0.equals(lpparam.processName) || hookPackage1.equals(lpparam.processName);
             if (!isMainProcess)
                 return;
 
