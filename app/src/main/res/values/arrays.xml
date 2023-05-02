@@ -3,5 +3,6 @@
     <string-array name="xposedscope">
         <item>tv.danmaku.bili</item>
         <item>com.bilibili.app.in</item>
+        <item>com.twitter.android</item>
     </string-array>
 </resources>
