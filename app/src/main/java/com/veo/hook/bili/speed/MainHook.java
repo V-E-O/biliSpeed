@@ -23,6 +23,8 @@ public class MainHook implements IXposedHookLoadPackage {
     private static XC_MethodHook.Unhook first = null;
     private static XC_MethodHook.Unhook second = null;
     private static XC_MethodHook.Unhook third = null;
+    private static Field twField = null;
+    private static Method twMethod = null;
 
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
@@ -57,12 +59,21 @@ public class MainHook implements IXposedHookLoadPackage {
                                         XposedBridge.hookMethod(m, new XC_MethodHook() {
                                             @Override
                                             protected void afterHookedMethod(MethodHookParam param) throws IllegalAccessException, InvocationTargetException {
-                                                Field f = XposedHelpers.findField(param.thisObject.getClass(), "c");
-                                                Object c = f.get(param.thisObject);
-                                                XposedBridge.log("c: " + c);
-                                                Method y = XposedHelpers.findMethodExact(c.getClass(), "y", double.class);
-                                                XposedBridge.log("y: " + y);
-                                                y.invoke(c, speedConfig);
+                                                if (twField == null) {
+                                                    for (Field f : param.thisObject.getClass().getDeclaredFields()) {
+                                                        if (Modifier.isVolatile(f.getModifiers())) {
+                                                            twField = f;
+                                                            XposedBridge.log("twField: " + f);
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                Object c = twField.get(param.thisObject);
+                                                if (twMethod == null) {
+                                                    twMethod = XposedHelpers.findMethodsByExactParameters(c.getClass(), void.class, double.class)[0];
+                                                    XposedBridge.log("twMethod: " + twMethod);
+                                                }
+                                                twMethod.invoke(c, speedConfig);
                                             }
                                         });
 
