@@ -32,7 +32,7 @@ public class MainHook implements IXposedHookLoadPackage {
         boolean twitter = false;
         if (hookPackage0.equals(lpparam.packageName) || hookPackage1.equals(lpparam.packageName)) {
             bili = true;
-            if (!hookPackage0.equals(lpparam.processName))
+            if (!hookPackage0.equals(lpparam.processName) && !hookPackage1.equals(lpparam.processName))
                 return;
         } else if (hookPackage2.equals(lpparam.packageName)) {
             twitter = true;
