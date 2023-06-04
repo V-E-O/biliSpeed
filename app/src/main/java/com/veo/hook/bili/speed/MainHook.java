@@ -17,38 +17,48 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 
 public class MainHook implements IXposedHookLoadPackage {
-    public final static String hookPackage0 = "tv.danmaku.bili";
-    public final static String hookPackage1 = "com.bilibili.app.in";
-    public final static String hookPackage2 = "com.twitter.android";
+    public final static String hookPackageBili0 = "tv.danmaku.bili";
+    public final static String hookPackageBili1 = "com.bilibili.app.in";
+    public final static String hookPackageTw = "com.twitter.android";
+    public final static String hookPackageDy0 = "com.ss.android.ugc.aweme";
+    public final static String hookPackageDy1 = "com.ss.android.ugc.aweme.lite";
+    public final static String hookPackageDy2 = "com.ss.android.ugc.live";
+    private final static XSharedPreferences prefs = new XSharedPreferences("com.veo.hook.bili.speed", "speed");
     private static XC_MethodHook.Unhook first = null;
     private static XC_MethodHook.Unhook second = null;
     private static XC_MethodHook.Unhook third = null;
     private static Field twField = null;
     private static Method twMethod = null;
 
+    private static float getSpeedConfig() {
+        prefs.reload();
+        return prefs.getFloat("speed", 1.5f);
+    }
+
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
         boolean bili = false;
         boolean twitter = false;
-        if (hookPackage0.equals(lpparam.packageName) || hookPackage1.equals(lpparam.packageName)) {
+        boolean douyin = false;
+        if (hookPackageBili0.equals(lpparam.packageName) || hookPackageBili1.equals(lpparam.packageName)) {
             bili = true;
-            if (!hookPackage0.equals(lpparam.processName) && !hookPackage1.equals(lpparam.processName))
+            if (!hookPackageBili0.equals(lpparam.processName) && !hookPackageBili1.equals(lpparam.processName))
                 return;
-        } else if (hookPackage2.equals(lpparam.packageName)) {
+        } else if (hookPackageTw.equals(lpparam.packageName)) {
             twitter = true;
-            if (!hookPackage2.equals(lpparam.processName))
+            if (!hookPackageTw.equals(lpparam.processName)) return;
+        } else if (hookPackageDy0.equals(lpparam.packageName) || hookPackageDy1.equals(lpparam.packageName) || hookPackageDy2.equals(lpparam.packageName)) {
+            douyin = true;
+            if (!hookPackageDy0.equals(lpparam.processName) && !hookPackageDy1.equals(lpparam.processName) && !hookPackageDy2.equals(lpparam.processName))
                 return;
         }
-        if (bili || twitter) {
-            XSharedPreferences prefs = new XSharedPreferences("com.veo.hook.bili.speed", "speed");
-            final float speedConfig = prefs.getFloat("speed", 1.5f);
-
+        if (bili || twitter || douyin) {
             if (twitter) {
                 first = XposedHelpers.findAndHookMethod(Resources.class, "getConfiguration", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-                        if (stackTraceElements.length == 16) {
+                        if (stackTraceElements.length >= 14 && stackTraceElements.length <= 17) {
                             StackTraceElement stack = stackTraceElements[stackTraceElements.length - 1];
                             if ("android.os.HandlerThread".equals(stack.getClassName()) && "run".equals(stack.getMethodName()) && "onNext".equals(stackTraceElements[8].getMethodName()) && stackTraceElements[5].getClassName().equals(stackTraceElements[6].getClassName())) {
                                 String className = stackTraceElements[5].getClassName();
@@ -73,7 +83,7 @@ public class MainHook implements IXposedHookLoadPackage {
                                                     twMethod = XposedHelpers.findMethodsByExactParameters(c.getClass(), void.class, double.class)[0];
                                                     XposedBridge.log("twMethod: " + twMethod);
                                                 }
-                                                twMethod.invoke(c, speedConfig);
+                                                twMethod.invoke(c, getSpeedConfig());
                                             }
                                         });
 
@@ -144,7 +154,7 @@ public class MainHook implements IXposedHookLoadPackage {
                                                                         if (stackTraceElements[i].getClassName().startsWith("com.bilibili.video."))
                                                                             return;
                                                                     }
-                                                                    param.args[0] = speedConfig;
+                                                                    param.args[0] = getSpeedConfig();
                                                                 }
                                                             }
                                                         });
@@ -170,6 +180,39 @@ public class MainHook implements IXposedHookLoadPackage {
                     }
                 });
                 XposedBridge.log("hooked AbstractMediaPlayer->notifyOnPrepared");
+            } else if (douyin) {
+                XposedHelpers.findAndHookMethod("com.ss.android.ugc.aweme.video.simplayer.SimPlayer", lpparam.classLoader, "setSpeed", float.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        float speed = (float) param.args[0];
+//                        XposedBridge.log("speed: " + speed);
+                        if (speed == 1.0f) {
+                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                            for (int i = 16; i <= 19 && i < stackTraceElements.length; i++) {
+                                // return on manually speed tweak
+                                if (stackTraceElements[i].getMethodName().equals("dispatchTouchEvent")) {
+//                                    XposedBridge.log("i: " + i);
+                                    return;
+                                }
+                            }
+                            param.args[0] = getSpeedConfig();
+                        }
+                    }
+                });
+                XposedBridge.log("hooked setSpeed");
+
+                // 彩蛋：长按加速
+//                XposedHelpers.findAndHookMethod("com.bytedance.ies.abmock.ABManager", lpparam.classLoader, "getIntValue", boolean.class, String.class, int.class, int.class, new XC_MethodHook() {
+//                        @Override
+//                        protected void beforeHookedMethod(MethodHookParam param) {
+//                            if ("long_press_fast_speed_enabled_scene".equals(param.args[1])) {
+//                                param.setResult(Integer.valueOf(1));
+//                            } else if ("long_press_fast_speed_screen_scale".equals(param.args[1])) {
+//                                param.setResult(Integer.valueOf(40));
+//                            }
+//                        }
+//                    }
+//                );
             }
         }
     }

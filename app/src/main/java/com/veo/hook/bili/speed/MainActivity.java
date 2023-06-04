@@ -20,14 +20,20 @@ public class MainActivity extends Activity {
         final EditText et = findViewById(R.id.editTextText);
         final Button button = findViewById(R.id.button);
 
-        try {
-            prefs = this.getSharedPreferences("speed", Context.MODE_WORLD_READABLE);
-            float speed = prefs.getFloat("speed", 1.5f);
-            et.setText(String.valueOf(speed));
-        } catch (SecurityException ignored) {
-            // The new XSharedPreferences is not enabled or module's not loading
-            prefs = null;
-            Toast.makeText(getApplicationContext(), "激活模块后，重新打开本应用", Toast.LENGTH_LONG).show();
+        int retry = 14;
+        while (retry-- > 0) {
+            try {
+                prefs = this.getSharedPreferences("speed", Context.MODE_WORLD_READABLE);
+                float speed = prefs.getFloat("speed", 1.5f);
+                et.setText(String.valueOf(speed));
+                break;
+            } catch (SecurityException se) {
+                // The new XSharedPreferences is not enabled or module's not loading
+                prefs = null;
+            }
+        };
+        if (retry <= 0) {
+            Toast.makeText(getApplicationContext(), "模块未激活，激活后重启本应用", Toast.LENGTH_LONG).show();
         }
 
         button.setOnClickListener(v -> {
@@ -39,7 +45,7 @@ public class MainActivity extends Activity {
                     float speed = Float.valueOf(et.getText().toString());
                     e.putFloat("speed", speed);
                     e.commit();
-                    Toast.makeText(getApplicationContext(), "设置成功，重启bili生效", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), "设置成功，下一个视频生效", Toast.LENGTH_LONG).show();
                 } catch (NumberFormatException ignored) {
                     Toast.makeText(getApplicationContext(), "输浮点数字~~", Toast.LENGTH_LONG).show();
                 }

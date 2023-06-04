@@ -4,5 +4,8 @@
         <item>tv.danmaku.bili</item>
         <item>com.bilibili.app.in</item>
         <item>com.twitter.android</item>
+        <item>com.ss.android.ugc.aweme</item>
+        <item>com.ss.android.ugc.aweme.lite</item>
+        <item>com.ss.android.ugc.live</item>
     </string-array>
 </resources>
