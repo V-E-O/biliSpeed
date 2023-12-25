@@ -104,6 +104,7 @@ public class MainHook implements IXposedHookLoadPackage {
                                 Field[] fields = param.thisObject.getClass().getDeclaredFields();
                                 XposedBridge.log("found fields t count: " + fields.length);
                                 Field t = fields[0];
+                                t.setAccessible(true);
                                 Object tObj = t.get(param.thisObject);
                                 Class<?> clz = tObj.getClass();
                                 XposedBridge.log("chosen fields t: " + clz);
@@ -121,7 +122,9 @@ public class MainHook implements IXposedHookLoadPackage {
                                                     Field[] fields = param.thisObject.getClass().getDeclaredFields();
                                                     XposedBridge.log("found fields s0 count: " + fields.length);
 
-                                                    Class<?> s0 = param.thisObject.getClass().getDeclaredFields()[0].get(param.thisObject).getClass();
+                                                    Field field = param.thisObject.getClass().getDeclaredFields()[0];
+                                                    field.setAccessible(true);
+                                                    Class<?> s0 = field.get(param.thisObject).getClass();
                                                     XposedBridge.log("chosen fields s0: " + s0);
 
                                                     for (Method method : s0.getDeclaredMethods()) {
