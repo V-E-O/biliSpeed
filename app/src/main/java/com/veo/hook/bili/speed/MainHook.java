@@ -58,41 +58,46 @@ public class MainHook implements IXposedHookLoadPackage {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-                        if (stackTraceElements.length >= 14 && stackTraceElements.length <= 17) {
-                            StackTraceElement stack = stackTraceElements[stackTraceElements.length - 1];
-                            if ("android.os.HandlerThread".equals(stack.getClassName()) && "run".equals(stack.getMethodName()) && "onNext".equals(stackTraceElements[8].getMethodName()) && stackTraceElements[5].getClassName().equals(stackTraceElements[6].getClassName())) {
-                                String className = stackTraceElements[5].getClassName();
-                                String methodName = stackTraceElements[5].getMethodName();
-                                Class<?> clz = XposedHelpers.findClass(stackTraceElements[5].getClassName(), lpparam.classLoader);
-                                for (Method m : clz.getDeclaredMethods()) {
-                                    if (methodName.equals(m.getName())) {
-                                        XposedBridge.hookMethod(m, new XC_MethodHook() {
-                                            @Override
-                                            protected void afterHookedMethod(MethodHookParam param) throws IllegalAccessException, InvocationTargetException {
-                                                if (twField == null) {
-                                                    for (Field f : param.thisObject.getClass().getDeclaredFields()) {
-                                                        if (Modifier.isVolatile(f.getModifiers())) {
-                                                            twField = f;
-                                                            XposedBridge.log("twField: " + f);
-                                                            break;
+                        if (stackTraceElements.length >= 14 && stackTraceElements.length < 21) {
+                            if ("android.os.HandlerThread".equals(stackTraceElements[stackTraceElements.length - 1].getClassName()) && "run".equals(stackTraceElements[stackTraceElements.length - 1].getMethodName())) {
+                                for (int i = 0; i < stackTraceElements.length; i++) {
+                                    if ("getConfiguration".equals(stackTraceElements[i].getMethodName())) {
+                                        if (stackTraceElements[i + 1].getClassName().equals(stackTraceElements[i + 2].getClassName()) && "onNext".equals(stackTraceElements[i + 4].getMethodName())) {
+                                            String className = stackTraceElements[i + 1].getClassName();
+                                            String methodName = stackTraceElements[i + 1].getMethodName();
+                                            Class<?> clz = XposedHelpers.findClass(stackTraceElements[i + 1].getClassName(), lpparam.classLoader);
+                                            for (Method m : clz.getDeclaredMethods()) {
+                                                if (methodName.equals(m.getName())) {
+                                                    XposedBridge.hookMethod(m, new XC_MethodHook() {
+                                                        @Override
+                                                        protected void afterHookedMethod(MethodHookParam param) throws IllegalAccessException, InvocationTargetException {
+                                                            if (twField == null) {
+                                                                for (Field f : param.thisObject.getClass().getDeclaredFields()) {
+                                                                    if (Modifier.isVolatile(f.getModifiers())) {
+                                                                        twField = f;
+                                                                        XposedBridge.log("twField: " + f);
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            }
+                                                            Object c = twField.get(param.thisObject);
+                                                            if (twMethod == null) {
+                                                                twMethod = XposedHelpers.findMethodsByExactParameters(c.getClass(), void.class, double.class)[0];
+                                                                XposedBridge.log("twMethod: " + twMethod);
+                                                            }
+                                                            twMethod.invoke(c, getSpeedConfig());
                                                         }
-                                                    }
+                                                    });
+
+                                                    first.unhook();
+                                                    XposedBridge.log("hooked " + className + "->" + methodName);
+
+                                                    // we just hook it, thus we need re-enter the method
+                                                    param.setThrowable(new Resources.NotFoundException());
+                                                    break;
                                                 }
-                                                Object c = twField.get(param.thisObject);
-                                                if (twMethod == null) {
-                                                    twMethod = XposedHelpers.findMethodsByExactParameters(c.getClass(), void.class, double.class)[0];
-                                                    XposedBridge.log("twMethod: " + twMethod);
-                                                }
-                                                twMethod.invoke(c, getSpeedConfig());
                                             }
-                                        });
-
-                                        first.unhook();
-                                        XposedBridge.log("hooked " + className + "->" + methodName);
-
-                                        // we just hook it, thus we need re-enter the method
-                                        param.setThrowable(new Resources.NotFoundException());
-                                        break;
+                                        }
                                     }
                                 }
                             }

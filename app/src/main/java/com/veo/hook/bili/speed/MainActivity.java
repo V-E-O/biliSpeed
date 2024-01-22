@@ -5,7 +5,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -31,7 +30,7 @@ public class MainActivity extends Activity {
                 // The new XSharedPreferences is not enabled or module's not loading
                 prefs = null;
             }
-        };
+        }
         if (retry <= 0) {
             Toast.makeText(getApplicationContext(), "模块未激活，激活后重启本应用", Toast.LENGTH_LONG).show();
         }
@@ -42,7 +41,7 @@ public class MainActivity extends Activity {
             } else {
                 SharedPreferences.Editor e = prefs.edit();
                 try {
-                    float speed = Float.valueOf(et.getText().toString());
+                    float speed = Float.parseFloat(et.getText().toString());
                     e.putFloat("speed", speed);
                     e.commit();
                     Toast.makeText(getApplicationContext(), "设置成功，下一个视频生效", Toast.LENGTH_LONG).show();
