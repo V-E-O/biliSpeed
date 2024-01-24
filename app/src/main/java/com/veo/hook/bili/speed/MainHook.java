@@ -2,6 +2,8 @@ package com.veo.hook.bili.speed;
 
 
 import android.content.res.Resources;
+import android.os.Message;
+import android.util.Log;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -23,6 +25,8 @@ public class MainHook implements IXposedHookLoadPackage {
     public final static String hookPackageDy0 = "com.ss.android.ugc.aweme";
     public final static String hookPackageDy1 = "com.ss.android.ugc.aweme.lite";
     public final static String hookPackageDy2 = "com.ss.android.ugc.live";
+    public final static String hookPackageXhs = "com.xingin.xhs";
+    public final static String hookPackageIg = "com.instagram.android";
     private final static XSharedPreferences prefs = new XSharedPreferences("com.veo.hook.bili.speed", "speed");
     private static XC_MethodHook.Unhook first = null;
     private static XC_MethodHook.Unhook second = null;
@@ -40,6 +44,8 @@ public class MainHook implements IXposedHookLoadPackage {
         boolean bili = false;
         boolean twitter = false;
         boolean douyin = false;
+        boolean xhs = false;
+        boolean ig = false;
         if (hookPackageBili0.equals(lpparam.packageName) || hookPackageBili1.equals(lpparam.packageName)) {
             bili = true;
             if (!hookPackageBili0.equals(lpparam.processName) && !hookPackageBili1.equals(lpparam.processName))
@@ -51,8 +57,16 @@ public class MainHook implements IXposedHookLoadPackage {
             douyin = true;
             if (!hookPackageDy0.equals(lpparam.processName) && !hookPackageDy1.equals(lpparam.processName) && !hookPackageDy2.equals(lpparam.processName))
                 return;
+        } else if (hookPackageXhs.equals(lpparam.packageName)) {
+            xhs = true;
+            if (!hookPackageXhs.equals(lpparam.processName))
+                return;
+        } else if (hookPackageIg.equals(lpparam.packageName)) {
+            ig = true;
+            if (!hookPackageIg.equals(lpparam.processName))
+                return;
         }
-        if (bili || twitter || douyin) {
+        if (bili || twitter || douyin || xhs || ig) {
             if (twitter) {
                 first = XposedHelpers.findAndHookMethod(Resources.class, "getConfiguration", new XC_MethodHook() {
                     @Override
@@ -221,6 +235,46 @@ public class MainHook implements IXposedHookLoadPackage {
 //                        }
 //                    }
 //                );
+            } else if (xhs) {
+                XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "initPlayer", "android.content.Context", "tv.danmaku.ijk.media.player.IjkLibLoader", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        Object thisObject = param.thisObject;
+//                        float currentSpeed = (float) XposedHelpers.callMethod(thisObject, "getSpeed", 0.0f);
+                        XposedHelpers.callMethod(thisObject, "setSpeed", getSpeedConfig());
+//                        XposedBridge.log(Log.getStackTraceString(new Throwable()));
+                        XposedBridge.log("xhs start speed set");
+                    }
+                });
+                XposedBridge.log("hooked xhs initPlayer");
+            } else if (ig) {
+                first = XposedHelpers.findAndHookConstructor("com.facebook.video.heroplayer.ipc.LiveState", lpparam.classLoader, String.class, int.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, boolean.class, boolean.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        XposedBridge.log("ig LiveState");
+
+                        StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                        for (int i = 4; i <= 7 && i < stackTraceElements.length; i++) {
+                            if ("run".equals(stackTraceElements[i].getMethodName())) {
+                                XposedHelpers.findAndHookMethod(stackTraceElements[i+1].getClassName(), lpparam.classLoader,"handleMessage", Message.class, new XC_MethodHook() {
+                                    @Override
+                                    protected void beforeHookedMethod(MethodHookParam param) {
+                                        Message msg = (Message) param.args[0];
+                                        if (msg.what == 6) {
+                                            Message speedMsg = new Message();
+                                            speedMsg.what = 27;
+                                            speedMsg.obj = getSpeedConfig();
+                                            XposedHelpers.callMethod(param.thisObject, "handleMessage", speedMsg);
+                                        }
+                                    }
+                                });
+                                XposedBridge.log("hooked ig handleMessage");
+                                first.unhook();
+                            }
+                        }
+                    }
+                });
+                XposedBridge.log("hooked ig LiveState");
             }
         }
     }
