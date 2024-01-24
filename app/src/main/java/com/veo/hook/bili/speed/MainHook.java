@@ -26,7 +26,8 @@ public class MainHook implements IXposedHookLoadPackage {
     public final static String hookPackageDy1 = "com.ss.android.ugc.aweme.lite";
     public final static String hookPackageDy2 = "com.ss.android.ugc.live";
     public final static String hookPackageXhs = "com.xingin.xhs";
-    public final static String hookPackageIg = "com.instagram.android";
+    public final static String hookPackageIg0 = "com.instagram.android";
+    public final static String hookPackageIg1 = "com.instander.android";
     private final static XSharedPreferences prefs = new XSharedPreferences("com.veo.hook.bili.speed", "speed");
     private static XC_MethodHook.Unhook first = null;
     private static XC_MethodHook.Unhook second = null;
@@ -61,9 +62,9 @@ public class MainHook implements IXposedHookLoadPackage {
             xhs = true;
             if (!hookPackageXhs.equals(lpparam.processName))
                 return;
-        } else if (hookPackageIg.equals(lpparam.packageName)) {
+        } else if (hookPackageIg0.equals(lpparam.packageName) || hookPackageIg1.equals(lpparam.packageName)) {
             ig = true;
-            if (!hookPackageIg.equals(lpparam.processName))
+            if (!hookPackageIg0.equals(lpparam.processName) && !hookPackageIg1.equals(lpparam.processName))
                 return;
         }
         if (bili || twitter || douyin || xhs || ig) {
