@@ -25,9 +25,11 @@ public class MainHook implements IXposedHookLoadPackage {
     public final static String hookPackageDy0 = "com.ss.android.ugc.aweme";
     public final static String hookPackageDy1 = "com.ss.android.ugc.aweme.lite";
     public final static String hookPackageDy2 = "com.ss.android.ugc.live";
+    public final static String hookPackageDy3 = "com.ss.android.ugc.aweme.mobile";
     public final static String hookPackageXhs = "com.xingin.xhs";
     public final static String hookPackageIg0 = "com.instagram.android";
     public final static String hookPackageIg1 = "com.instander.android";
+    public final static String hookPackageTg = "org.telegram.messenger";
     private final static XSharedPreferences prefs = new XSharedPreferences("com.veo.hook.bili.speed", "speed");
     private static XC_MethodHook.Unhook first = null;
     private static XC_MethodHook.Unhook second = null;
@@ -47,6 +49,7 @@ public class MainHook implements IXposedHookLoadPackage {
         boolean douyin = false;
         boolean xhs = false;
         boolean ig = false;
+        boolean tg = false;
         if (hookPackageBili0.equals(lpparam.packageName) || hookPackageBili1.equals(lpparam.packageName)) {
             bili = true;
             if (!hookPackageBili0.equals(lpparam.processName) && !hookPackageBili1.equals(lpparam.processName))
@@ -54,9 +57,9 @@ public class MainHook implements IXposedHookLoadPackage {
         } else if (hookPackageTw.equals(lpparam.packageName)) {
             twitter = true;
             if (!hookPackageTw.equals(lpparam.processName)) return;
-        } else if (hookPackageDy0.equals(lpparam.packageName) || hookPackageDy1.equals(lpparam.packageName) || hookPackageDy2.equals(lpparam.packageName)) {
+        } else if (hookPackageDy0.equals(lpparam.packageName) || hookPackageDy1.equals(lpparam.packageName) || hookPackageDy2.equals(lpparam.packageName) || hookPackageDy3.equals(lpparam.packageName)) {
             douyin = true;
-            if (!hookPackageDy0.equals(lpparam.processName) && !hookPackageDy1.equals(lpparam.processName) && !hookPackageDy2.equals(lpparam.processName))
+            if (!hookPackageDy0.equals(lpparam.processName) && !hookPackageDy1.equals(lpparam.processName) && !hookPackageDy2.equals(lpparam.processName) && !hookPackageDy3.equals(lpparam.processName))
                 return;
         } else if (hookPackageXhs.equals(lpparam.packageName)) {
             xhs = true;
@@ -66,8 +69,12 @@ public class MainHook implements IXposedHookLoadPackage {
             ig = true;
             if (!hookPackageIg0.equals(lpparam.processName) && !hookPackageIg1.equals(lpparam.processName))
                 return;
+        } else if (hookPackageTg.equals(lpparam.packageName)) {
+            tg = true;
+            if (!hookPackageTg.equals(lpparam.processName))
+                return;
         }
-        if (bili || twitter || douyin || xhs || ig) {
+        if (bili || twitter || douyin || xhs || ig || tg) {
             if (twitter) {
                 first = XposedHelpers.findAndHookMethod(Resources.class, "getConfiguration", new XC_MethodHook() {
                     @Override
@@ -276,6 +283,16 @@ public class MainHook implements IXposedHookLoadPackage {
                     }
                 });
                 XposedBridge.log("hooked ig LiveState");
+            } else if (tg) {
+                XposedHelpers.findAndHookMethod("org.telegram.ui.PhotoViewer", lpparam.classLoader, "preparePlayer", "android.net.Uri", boolean.class, boolean.class, "org.telegram.messenger.MediaController$SavedFilterState", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        Object thisObject = param.thisObject;
+                        XposedHelpers.setObjectField(thisObject, "currentVideoSpeed", getSpeedConfig());
+                        XposedBridge.log("tg speed set");
+                    }
+                });
+                XposedBridge.log("hooked tg setPlaybackSpeed");
             }
         }
     }
