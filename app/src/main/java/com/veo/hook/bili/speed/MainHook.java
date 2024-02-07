@@ -30,6 +30,7 @@ public class MainHook implements IXposedHookLoadPackage {
     public final static String hookPackageIg0 = "com.instagram.android";
     public final static String hookPackageIg1 = "com.instander.android";
     public final static String hookPackageTg = "org.telegram.messenger";
+    public final static String hookPackageWx = "com.tencent.mm";
     private final static XSharedPreferences prefs = new XSharedPreferences("com.veo.hook.bili.speed", "speed");
     private static XC_MethodHook.Unhook first = null;
     private static XC_MethodHook.Unhook second = null;
@@ -50,6 +51,7 @@ public class MainHook implements IXposedHookLoadPackage {
         boolean xhs = false;
         boolean ig = false;
         boolean tg = false;
+        boolean wx = false;
         if (hookPackageBili0.equals(lpparam.packageName) || hookPackageBili1.equals(lpparam.packageName)) {
             bili = true;
             if (!hookPackageBili0.equals(lpparam.processName) && !hookPackageBili1.equals(lpparam.processName))
@@ -73,8 +75,12 @@ public class MainHook implements IXposedHookLoadPackage {
             tg = true;
             if (!hookPackageTg.equals(lpparam.processName))
                 return;
+        } else if (hookPackageWx.equals(lpparam.packageName)) {
+            wx = true;
+            if (!hookPackageWx.equals(lpparam.processName))
+                return;
         }
-        if (bili || twitter || douyin || xhs || ig || tg) {
+        if (bili || twitter || douyin || xhs || ig || tg || wx) {
             if (twitter) {
                 first = XposedHelpers.findAndHookMethod(Resources.class, "getConfiguration", new XC_MethodHook() {
                     @Override
@@ -293,6 +299,24 @@ public class MainHook implements IXposedHookLoadPackage {
                     }
                 });
                 XposedBridge.log("hooked tg setPlaybackSpeed");
+            } else if (wx) {
+                XposedHelpers.findAndHookMethod("com.tencent.mm.plugin.finder.video.FinderThumbPlayerProxy", lpparam.classLoader, "setPlaySpeed", float.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        float speed = (float) param.args[0];
+                        if (speed == 1.0f) {
+                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                            for (int i = 7; i <= 10 && i < stackTraceElements.length; i++) {
+                                if ("com.tencent.mm.plugin.finder.video.FinderVideoLayout".equals(stackTraceElements[i].getClassName())) {
+                                    param.args[0] = getSpeedConfig();
+                                    XposedBridge.log("wx speed set");
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                });
+                XposedBridge.log("hooked wx setPlaySpeed");
             }
         }
     }

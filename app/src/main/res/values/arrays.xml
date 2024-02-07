@@ -12,5 +12,6 @@
         <item>com.instagram.android</item>
         <item>com.instander.android</item>
         <item>org.telegram.messenger</item>
+        <item>com.tencent.mm</item>
     </string-array>
 </resources>
