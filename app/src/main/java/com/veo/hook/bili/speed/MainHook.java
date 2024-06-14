@@ -5,6 +5,7 @@ import android.content.res.Resources;
 import android.os.Message;
 import android.util.Log;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -27,6 +28,7 @@ public class MainHook implements IXposedHookLoadPackage {
     public final static String hookPackageDy2 = "com.ss.android.ugc.live";
     public final static String hookPackageDy3 = "com.ss.android.ugc.aweme.mobile";
     public final static String hookPackageXhs = "com.xingin.xhs";
+    public final static String hookPackageWb = "com.sina.weibo";
     public final static String hookPackageIg0 = "com.instagram.android";
     public final static String hookPackageIg1 = "com.instander.android";
     public final static String hookPackageTg = "org.telegram.messenger";
@@ -42,6 +44,9 @@ public class MainHook implements IXposedHookLoadPackage {
         prefs.reload();
         return prefs.getFloat("speed", 1.5f);
     }
+    private static boolean hasSpeedConfigChanged() {
+        return prefs.hasFileChanged();
+    }
 
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
@@ -49,9 +54,11 @@ public class MainHook implements IXposedHookLoadPackage {
         boolean twitter = false;
         boolean douyin = false;
         boolean xhs = false;
+        boolean wb = false;
         boolean ig = false;
         boolean tg = false;
         boolean wx = false;
+
         if (hookPackageBili0.equals(lpparam.packageName) || hookPackageBili1.equals(lpparam.packageName)) {
             bili = true;
             if (!hookPackageBili0.equals(lpparam.processName) && !hookPackageBili1.equals(lpparam.processName))
@@ -67,6 +74,10 @@ public class MainHook implements IXposedHookLoadPackage {
             xhs = true;
             if (!hookPackageXhs.equals(lpparam.processName))
                 return;
+        } else if (hookPackageWb.equals(lpparam.packageName)) {
+            wb = true;
+            if (!hookPackageWb.equals(lpparam.processName))
+                return;
         } else if (hookPackageIg0.equals(lpparam.packageName) || hookPackageIg1.equals(lpparam.packageName)) {
             ig = true;
             if (!hookPackageIg0.equals(lpparam.processName) && !hookPackageIg1.equals(lpparam.processName))
@@ -80,7 +91,7 @@ public class MainHook implements IXposedHookLoadPackage {
             if (!hookPackageWx.equals(lpparam.processName))
                 return;
         }
-        if (bili || twitter || douyin || xhs || ig || tg || wx) {
+        if (bili || twitter || douyin || xhs || wb || ig || tg || wx) {
             if (twitter) {
                 first = XposedHelpers.findAndHookMethod(Resources.class, "getConfiguration", new XC_MethodHook() {
                     @Override
@@ -134,6 +145,40 @@ public class MainHook implements IXposedHookLoadPackage {
                 });
 
             } else if (bili) {
+//                float[] speedConfig = {getSpeedConfig()};
+//
+//                XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "start", new XC_MethodHook() {
+//                    @Override
+//                    protected void afterHookedMethod(MethodHookParam param) {
+//                        Object thisObject = param.thisObject;
+//                        if (hasSpeedConfigChanged()) {
+//                            speedConfig[0] = getSpeedConfig();
+//                        }
+//                        XposedHelpers.callMethod(thisObject, "setSpeed", speedConfig[0]);
+//                        XposedBridge.log("bili setSpeed: " + speedConfig[0]);
+//                    }
+//                });
+//
+//                XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "setSpeed", float.class, new XC_MethodHook() {
+//                    @Override
+//                    protected void afterHookedMethod(MethodHookParam param) {
+//                        XposedBridge.log(String.valueOf(param.args[0]));
+//                        XposedBridge.log(Log.getStackTraceString(new Throwable()));
+//
+//                        if ((float) param.args[0] != speedConfig[0]) {
+//                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+//                            for (int i = 4; i < stackTraceElements.length; i++) {
+//                                // return on manually speed tweak
+//                                if (stackTraceElements[i].getClassName().equals("com.bilibili.player.tangram.basic.PlaySpeedManagerImpl")) {
+//                                    XposedBridge.log("bili manual speed: " + param.args[0]);
+//                                    speedConfig[0] = (float) param.args[0];
+//                                    return;
+//                                }
+//                            }
+//                        }
+//                    }
+//                });
+//
                 first = XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.AbstractMediaPlayer", lpparam.classLoader, "notifyOnPrepared", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws IllegalAccessException {
@@ -179,32 +224,57 @@ public class MainHook implements IXposedHookLoadPackage {
                                                             continue;
 
                                                         XposedBridge.log("chosen b: " + method);
+
+                                                        float[] speedConfig = {getSpeedConfig()};
+
                                                         XposedBridge.hookMethod(method, new XC_MethodHook() {
                                                             @Override
-                                                            protected void beforeHookedMethod(MethodHookParam param) {
-                                                                float speed = (float) param.args[0];
-                                                                if (speed == 1.0f) {
+                                                            protected void afterHookedMethod(MethodHookParam param) {
+                                                                if ((float) param.args[0] != speedConfig[0]) {
                                                                     StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-                                                                    for (int i = 4; i <= 7 && i < stackTraceElements.length; i++) {
+                                                                    for (int i = 4; i < stackTraceElements.length; i++) {
                                                                         // return on manually speed tweak
-                                                                        if (stackTraceElements[i].getClassName().startsWith("com.bilibili.video."))
+                                                                        if (stackTraceElements[i].getClassName().equals("com.bilibili.player.tangram.basic.PlaySpeedManagerImpl")) {
+                                                                            XposedBridge.log("bili manual speed: " + param.args[0]);
+                                                                            speedConfig[0] = (float) param.args[0];
                                                                             return;
+                                                                        }
                                                                     }
-                                                                    param.args[0] = getSpeedConfig();
                                                                 }
                                                             }
                                                         });
+                                                        XposedBridge.log("bili hooked setSpeed");
+
+                                                        XposedHelpers.findAndHookMethod(s0, "resume", new XC_MethodHook() {
+                                                            @Override
+                                                            protected void afterHookedMethod(MethodHookParam param) {
+                                                                Object thisObject = param.thisObject;
+                                                                if (hasSpeedConfigChanged()) {
+                                                                    speedConfig[0] = getSpeedConfig();
+                                                                }
+                                                                try {
+                                                                    method.invoke(thisObject,  speedConfig[0]);
+                                                                } catch (IllegalAccessException e) {
+                                                                    // should not happen
+                                                                    XposedBridge.log(e);
+                                                                    throw new IllegalAccessError(e.getMessage());
+                                                                } catch (InvocationTargetException e) {
+                                                                    throw new RuntimeException(e);
+                                                                }
+                                                                XposedBridge.log("bili setSpeed: " + speedConfig[0]);
+                                                            }
+                                                        });
+                                                        XposedBridge.log("bili hooked resume");
+
                                                         first.unhook();
                                                         second.unhook();
                                                         third.unhook();
 
-                                                        XposedBridge.log("hooked s0->b");
                                                         break;
                                                     }
                                                 }
                                             });
                                             XposedBridge.log("hooked p->onPrepared");
-
                                             break;
                                         }
                                     }
@@ -212,7 +282,6 @@ public class MainHook implements IXposedHookLoadPackage {
                             }
                         });
                         XposedBridge.log("hooked mOnPreparedListener->onPrepared");
-
                     }
                 });
                 XposedBridge.log("hooked AbstractMediaPlayer->notifyOnPrepared");
@@ -261,6 +330,35 @@ public class MainHook implements IXposedHookLoadPackage {
                     }
                 });
                 XposedBridge.log("hooked xhs initPlayer");
+            } else if (wb) {
+                float[] speedConfig = {getSpeedConfig()};
+                XposedHelpers.findAndHookMethod("com.sina.weibo.mc.MagicCubePlayer", lpparam.classLoader, "onInfo", int.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+//                        XposedBridge.log("setSpeed arg0: " + (int)param.args[0] + " arg1: " + (int)param.args[1]);
+                        if ((int)param.args[0] == 13 && (int)param.args[1] == 0) {
+                            Object thisObject = param.thisObject;
+                            if (hasSpeedConfigChanged()) {
+                                speedConfig[0] = getSpeedConfig();
+                            }
+                            XposedHelpers.callMethod(thisObject, "setSpeed", speedConfig[0]);
+                            XposedBridge.log("weibo setSpeed: " + speedConfig[0]);
+                        }
+                    }
+                });
+                XposedHelpers.findAndHookMethod("com.sina.weibo.mc.MagicCubePlayer", lpparam.classLoader, "setSpeed", float.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+//                        XposedBridge.log(Log.getStackTraceString(new Throwable()));
+//                        XposedBridge.log("setSpeed: " + param.args[0]);
+
+                        if ((float) param.args[0] != speedConfig[0]) {
+                            XposedBridge.log("weibo manual speed: " + param.args[0]);
+                            speedConfig[0] = (float) param.args[0];
+                        }
+                    }
+                });
+                XposedBridge.log("hooked weibo");
             } else if (ig) {
                 first = XposedHelpers.findAndHookConstructor("com.facebook.video.heroplayer.ipc.LiveState", lpparam.classLoader, String.class, int.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, boolean.class, boolean.class, new XC_MethodHook() {
                     @Override

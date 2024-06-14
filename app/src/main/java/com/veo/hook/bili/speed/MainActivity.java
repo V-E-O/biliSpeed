@@ -42,6 +42,10 @@ public class MainActivity extends Activity {
                 SharedPreferences.Editor e = prefs.edit();
                 try {
                     float speed = Float.parseFloat(et.getText().toString());
+                    // hack: make config change
+                    e.remove("speed");
+                    e.apply();
+                    //
                     e.putFloat("speed", speed);
                     e.commit();
                     Toast.makeText(getApplicationContext(), "设置成功，下一个视频生效", Toast.LENGTH_LONG).show();
