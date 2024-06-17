@@ -5,7 +5,6 @@ import android.content.res.Resources;
 import android.os.Message;
 import android.util.Log;
 
-import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -332,6 +331,7 @@ public class MainHook implements IXposedHookLoadPackage {
                 XposedBridge.log("hooked xhs initPlayer");
             } else if (wb) {
                 float[] speedConfig = {getSpeedConfig()};
+
                 XposedHelpers.findAndHookMethod("com.sina.weibo.mc.MagicCubePlayer", lpparam.classLoader, "onInfo", int.class, int.class, new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
@@ -342,51 +342,90 @@ public class MainHook implements IXposedHookLoadPackage {
                                 speedConfig[0] = getSpeedConfig();
                             }
                             XposedHelpers.callMethod(thisObject, "setSpeed", speedConfig[0]);
-                            XposedBridge.log("weibo setSpeed: " + speedConfig[0]);
+                            XposedBridge.log("weibo setSpeed0: " + speedConfig[0]);
                         }
                     }
                 });
                 XposedHelpers.findAndHookMethod("com.sina.weibo.mc.MagicCubePlayer", lpparam.classLoader, "setSpeed", float.class, new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-//                        XposedBridge.log(Log.getStackTraceString(new Throwable()));
-//                        XposedBridge.log("setSpeed: " + param.args[0]);
-
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         if ((float) param.args[0] != speedConfig[0]) {
-                            XposedBridge.log("weibo manual speed: " + param.args[0]);
-                            speedConfig[0] = (float) param.args[0];
+                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                            for (int i = 4; i < stackTraceElements.length; i++) {
+                                // manual set
+                                if (stackTraceElements[i].getMethodName().contains("Click")) {
+                                    XposedBridge.log("weibo manual speed0: " + param.args[0]);
+                                    speedConfig[0] = (float) param.args[0];
+                                    return;
+                                }
+                            }
+                            param.args[0] = speedConfig[0];
                         }
                     }
                 });
-                XposedBridge.log("hooked weibo");
-            } else if (ig) {
-                first = XposedHelpers.findAndHookConstructor("com.facebook.video.heroplayer.ipc.LiveState", lpparam.classLoader, String.class, int.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, long.class, boolean.class, boolean.class, new XC_MethodHook() {
+
+                XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "start", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
-                        XposedBridge.log("ig LiveState");
+                        Object thisObject = param.thisObject;
+                        if (hasSpeedConfigChanged()) {
+                            speedConfig[0] = getSpeedConfig();
+                        }
+                        XposedHelpers.callMethod(thisObject, "setSpeed", speedConfig[0]);
+                        XposedBridge.log("weibo setSpeed1: " + speedConfig[0]);
+                    }
+                });
 
-                        StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-                        for (int i = 4; i <= 7 && i < stackTraceElements.length; i++) {
-                            if ("run".equals(stackTraceElements[i].getMethodName())) {
-                                XposedHelpers.findAndHookMethod(stackTraceElements[i+1].getClassName(), lpparam.classLoader,"handleMessage", Message.class, new XC_MethodHook() {
-                                    @Override
-                                    protected void beforeHookedMethod(MethodHookParam param) {
-                                        Message msg = (Message) param.args[0];
-                                        if (msg.what == 6) {
-                                            Message speedMsg = new Message();
-                                            speedMsg.what = 27;
-                                            speedMsg.obj = getSpeedConfig();
-                                            XposedHelpers.callMethod(param.thisObject, "handleMessage", speedMsg);
+                XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "setSpeed", float.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if ((float) param.args[0] != speedConfig[0]) {
+                            XposedBridge.log(Log.getStackTraceString(new Throwable()));
+                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                            for (int i = 4; i < stackTraceElements.length; i++) {
+                                // manual set
+                                if (stackTraceElements[i].getMethodName().contains("Click")) {
+                                    XposedBridge.log("weibo manual speed0: " + param.args[0]);
+                                    speedConfig[0] = (float) param.args[0];
+                                    return;
+                                }
+                            }
+                            param.args[0] = speedConfig[0];
+                        }
+                    }
+                });
+
+                XposedBridge.log("hooked weibo");
+            } else if (ig) {
+                first = XposedHelpers.findAndHookMethod("com.facebook.breakpad.BreakpadManager", lpparam.classLoader,"setCustomData", String.class, String.class, Object[].class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        if ("last_video".equals(param.args[0])) {
+                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                            for (int i = 2; i <= 7 && i < stackTraceElements.length; i++) {
+                                if ("setCustomData".equals(stackTraceElements[i].getMethodName())) {
+                                    XposedHelpers.findAndHookMethod(stackTraceElements[i + 1].getClassName(), lpparam.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+                                        @Override
+                                        protected void beforeHookedMethod(MethodHookParam param) {
+                                            Message msg = (Message) param.args[0];
+                                            if (msg.what == 6) {
+                                                Message speedMsg = new Message();
+                                                speedMsg.what = 27;
+                                                speedMsg.obj = getSpeedConfig();
+                                                XposedHelpers.callMethod(param.thisObject, "handleMessage", speedMsg);
+                                            }
                                         }
-                                    }
-                                });
-                                XposedBridge.log("hooked ig handleMessage");
-                                first.unhook();
+                                    });
+
+                                    XposedBridge.log("hooked ig handleMessage");
+                                    first.unhook();
+                                    return;
+                                }
                             }
                         }
                     }
                 });
-                XposedBridge.log("hooked ig LiveState");
+                XposedBridge.log("hooked ig BreakpadManager");
             } else if (tg) {
                 XposedHelpers.findAndHookMethod("org.telegram.ui.PhotoViewer", lpparam.classLoader, "preparePlayer", "android.net.Uri", boolean.class, boolean.class, "org.telegram.messenger.MediaController$SavedFilterState", new XC_MethodHook() {
                     @Override
