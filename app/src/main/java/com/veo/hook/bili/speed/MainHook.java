@@ -2,8 +2,8 @@ package com.veo.hook.bili.speed;
 
 
 import android.content.res.Resources;
+import android.os.Bundle;
 import android.os.Message;
-import android.util.Log;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -285,25 +285,110 @@ public class MainHook implements IXposedHookLoadPackage {
                 });
                 XposedBridge.log("hooked AbstractMediaPlayer->notifyOnPrepared");
             } else if (douyin) {
-                XposedHelpers.findAndHookMethod("com.ss.android.ugc.aweme.video.simplayer.SimPlayer", lpparam.classLoader, "setSpeed", float.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        float speed = (float) param.args[0];
-//                        XposedBridge.log("speed: " + speed);
-                        if (speed == 1.0f) {
-                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-                            for (int i = 16; i <= 19 && i < stackTraceElements.length; i++) {
-                                // return on manually speed tweak
-                                if (stackTraceElements[i].getMethodName().equals("dispatchTouchEvent")) {
-//                                    XposedBridge.log("i: " + i);
-                                    return;
+                try {
+                    float[] speedConfig = {getSpeedConfig()};
+                    Boolean[] resumeHooked = {false};
+
+                    XposedHelpers.findAndHookMethod("com.ss.android.ugc.aweme.video.simplayer.SimPlayer", lpparam.classLoader, "prepare", "com.ss.android.ugc.aweme.video.PlayRequest", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            Object thisObject = param.thisObject;
+
+                            if (!resumeHooked[0]) {
+                                StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                                for (int i = 4; i <= 7 && i < stackTraceElements.length; i++) {
+                                    if (stackTraceElements[i].getMethodName().equals("prepare")) {
+                                        Class<?> parentClass = XposedHelpers.findClass(stackTraceElements[i + 1].getClassName(), lpparam.classLoader);
+                                        Object[] parameters = {"com.ss.android.ugc.aweme.feed.model.Video", "com.ss.android.ugc.aweme.player.sdk.api.OnUIPlayListener", int.class, String.class, boolean.class, String.class, boolean.class, boolean.class, int.class, int.class, boolean.class, boolean.class, Bundle.class};
+                                        Class<?>[] parameter = (Class<?>[]) XposedHelpers.callStaticMethod(XposedHelpers.class, "getParameterClasses", lpparam.classLoader, parameters);
+                                        Method[] methods = XposedHelpers.findMethodsByExactParameters(parentClass, String.class, parameter);
+                                        if (methods.length == 1) {
+                                            XC_MethodHook mh = new XC_MethodHook() {
+                                                @Override
+                                                protected void afterHookedMethod(MethodHookParam param) {
+                                                    if (hasSpeedConfigChanged()) {
+                                                        speedConfig[0] = getSpeedConfig();
+                                                    }
+                                                    XposedHelpers.callMethod(thisObject, "setSpeed", speedConfig[0]);
+                                                    XposedBridge.log("douyin setSpeed1: " + speedConfig[0]);
+                                                }
+                                            };
+                                            XposedBridge.hookMethod(methods[0], mh);
+                                            XposedHelpers.findAndHookMethod("com.ss.android.ugc.aweme.video.simplayer.SimPlayer", lpparam.classLoader, "resume", mh);
+                                            XposedBridge.log("hooked douyin resume");
+                                        }
+                                    }
                                 }
+                                resumeHooked[0] = true;
                             }
-                            param.args[0] = getSpeedConfig();
+
+                            if (hasSpeedConfigChanged()) {
+                                speedConfig[0] = getSpeedConfig();
+                            }
+                            XposedHelpers.callMethod(thisObject, "setSpeed", speedConfig[0]);
+                            XposedBridge.log("douyin setSpeed0: " + speedConfig[0]);
                         }
-                    }
-                });
-                XposedBridge.log("hooked setSpeed");
+                    });
+
+                    XposedHelpers.findAndHookMethod("com.ss.android.ugc.aweme.video.simplayer.SimPlayer", lpparam.classLoader, "setSpeed", float.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if ((float) param.args[0] != speedConfig[0]) {
+                                StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                                if (stackTraceElements.length <= 40) {
+                                    for (int i = 4; i <= 7 && i < stackTraceElements.length; i++) {
+                                        // manually speed tweak
+                                        if (stackTraceElements[i].getMethodName().equals("setSpeed") &&
+                                                (stackTraceElements[i+2].getMethodName().contains("onChanged") ||
+                                                        stackTraceElements[i+3].getMethodName().contains("onChanged"))) {
+                                            XposedBridge.log("douyin manual speed0: " + param.args[0]);
+                                            speedConfig[0] = (float) param.args[0];
+                                            return;
+                                        }
+                                    }
+                                } else {
+                                    for (int i = 16; i <= 24 && i < stackTraceElements.length; i++) {
+                                        // manually speed tweak
+                                        if (stackTraceElements[i].getMethodName().equals("dispatchTouchEvent")) {
+                                            XposedBridge.log("douyin manual speed1: " + param.args[0]);
+                                            speedConfig[0] = (float) param.args[0];
+                                            return;
+                                        }
+                                    }
+                                }
+                                param.args[0] = speedConfig[0];
+                                XposedBridge.log("douyin setSpeed2: " + speedConfig[0]);
+                            }
+                        }
+                    });
+                } catch (XposedHelpers.ClassNotFoundError cnfe) {
+                    XposedBridge.log("douyin hook error0: " + cnfe);
+                }
+
+                try {
+                    XposedHelpers.findAndHookMethod("com.ss.android.ugc.aweme.player.sdk.impl.TTPlayer", lpparam.classLoader, "setPlaySpeed", float.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            float speed = (float) param.args[0];
+//                        XposedBridge.log("speed: " + speed);
+                            if (speed == 1.0f) {
+                                StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                                for (int i = 12; i <= 17 && i < stackTraceElements.length; i++) {
+                                    // return on manually speed tweak
+                                    if (stackTraceElements[i].getMethodName().equals("dispatchingValue")) {
+//                                    XposedBridge.log("i: " + i);
+                                        return;
+                                    }
+                                }
+                                param.args[0] = getSpeedConfig();
+                            }
+                        }
+                    });
+                } catch (XposedHelpers.ClassNotFoundError cnfe) {
+                    XposedBridge.log("douyin hook error1: " + cnfe);
+                }
+
+                XposedBridge.log("hooked douyin setSpeed");
 
                 // 彩蛋：长按加速
 //                XposedHelpers.findAndHookMethod("com.bytedance.ies.abmock.ABManager", lpparam.classLoader, "getIntValue", boolean.class, String.class, int.class, int.class, new XC_MethodHook() {
@@ -380,7 +465,6 @@ public class MainHook implements IXposedHookLoadPackage {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         if ((float) param.args[0] != speedConfig[0]) {
-                            XposedBridge.log(Log.getStackTraceString(new Throwable()));
                             StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
                             for (int i = 4; i < stackTraceElements.length; i++) {
                                 // manual set
