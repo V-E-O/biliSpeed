@@ -657,8 +657,9 @@ public class MainHook implements IXposedHookLoadPackage {
                     protected void beforeHookedMethod(MethodHookParam param) {
                         float speed = (float) param.args[0];
                         if (speed == 1.0f) {
+//                            XposedBridge.log(Log.getStackTraceString(new Throwable()));
                             StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-                            for (int i = 7; i <= 10 && i < stackTraceElements.length; i++) {
+                            for (int i = 4; i <= 10 && i < stackTraceElements.length; i++) {
                                 if ("com.tencent.mm.plugin.finder.video.FinderVideoLayout".equals(stackTraceElements[i].getClassName())) {
                                     param.args[0] = getSpeedConfig();
                                     XposedBridge.log("wx speed set");
