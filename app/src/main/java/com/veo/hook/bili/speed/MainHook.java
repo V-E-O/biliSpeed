@@ -1,6 +1,7 @@
 package com.veo.hook.bili.speed;
 
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Message;
@@ -10,6 +11,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.concurrent.ConcurrentHashMap;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -27,7 +29,7 @@ public class MainHook implements IXposedHookLoadPackage {
     public final static String hookPackageDy1 = "com.ss.android.ugc.aweme.lite";
     public final static String hookPackageDy2 = "com.ss.android.ugc.live";
     public final static String hookPackageDy3 = "com.ss.android.ugc.aweme.mobile";
-    public final static String hookPackageXhs = "com.xingin.xhs";
+    public final static String hookPackageRed = "com.xingin.xhs";
     public final static String hookPackageWb = "com.sina.weibo";
     public final static String hookPackageIg0 = "com.instagram.android";
     public final static String hookPackageIg1 = "com.instander.android";
@@ -53,7 +55,7 @@ public class MainHook implements IXposedHookLoadPackage {
         boolean bili = false;
         boolean twitter = false;
         boolean douyin = false;
-        boolean xhs = false;
+        boolean red = false;
         boolean wb = false;
         boolean ig = false;
         boolean tg = false;
@@ -70,9 +72,9 @@ public class MainHook implements IXposedHookLoadPackage {
             douyin = true;
             if (!hookPackageDy0.equals(lpparam.processName) && !hookPackageDy1.equals(lpparam.processName) && !hookPackageDy2.equals(lpparam.processName) && !hookPackageDy3.equals(lpparam.processName))
                 return;
-        } else if (hookPackageXhs.equals(lpparam.packageName)) {
-            xhs = true;
-            if (!hookPackageXhs.equals(lpparam.processName))
+        } else if (hookPackageRed.equals(lpparam.packageName)) {
+            red = true;
+            if (!hookPackageRed.equals(lpparam.processName))
                 return;
         } else if (hookPackageWb.equals(lpparam.packageName)) {
             wb = true;
@@ -91,7 +93,7 @@ public class MainHook implements IXposedHookLoadPackage {
             if (!hookPackageWx.equals(lpparam.processName))
                 return;
         }
-        if (bili || twitter || douyin || xhs || wb || ig || tg || wx) {
+        if (bili || twitter || douyin || red || wb || ig || tg || wx) {
             if (twitter) {
                 first = XposedHelpers.findAndHookMethod(Resources.class, "getConfiguration", new XC_MethodHook() {
                     @Override
@@ -465,18 +467,84 @@ public class MainHook implements IXposedHookLoadPackage {
 //                        }
 //                    }
 //                );
-            } else if (xhs) {
-                XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "initPlayer", "android.content.Context", "tv.danmaku.ijk.media.player.IjkLibLoader", new XC_MethodHook() {
+            } else if (red) {
+                float[] speedConfig = {getSpeedConfig()};
+
+                XC_MethodHook hookInit = new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         Object thisObject = param.thisObject;
 //                        float currentSpeed = (float) XposedHelpers.callMethod(thisObject, "getSpeed", 0.0f);
-                        XposedHelpers.callMethod(thisObject, "setSpeed", getSpeedConfig());
-//                        XposedBridge.log(Log.getStackTraceString(new Throwable()));
-                        XposedBridge.log("xhs start speed set");
+                        if (hasSpeedConfigChanged()) {
+                            speedConfig[0] = getSpeedConfig();
+                        }
+                        XposedHelpers.callMethod(thisObject, "setSpeed", speedConfig[0]);
+                        XposedBridge.log("red setSpeed: " + speedConfig[0]);
+                    }
+                };
+
+                XC_MethodHook hookSetSpeed = new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if ((float) param.args[0] != speedConfig[0]) {
+                            XposedBridge.log(Log.getStackTraceString(new Throwable()));
+
+                            StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+                            for (int i = 4; i < stackTraceElements.length; i++) {
+                                // manual set
+                                if (stackTraceElements[i].getMethodName().contains("Click")) {
+                                    XposedBridge.log("red manual speed: " + param.args[0]);
+                                    speedConfig[0] = (float) param.args[0];
+                                    return;
+                                }
+                            }
+                            param.args[0] = speedConfig[0];
+                        }
+                    }
+                };
+
+                try {
+                    XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "initPlayer", "android.content.Context", "tv.danmaku.ijk.media.player.IjkLibLoader", hookInit);
+                    XposedHelpers.findAndHookMethod("tv.danmaku.ijk.media.player.IjkMediaPlayer", lpparam.classLoader, "setSpeed", float.class, hookSetSpeed);
+                    XposedBridge.log("hooked red IjkMediaPlayer");
+                } catch (XposedHelpers.ClassNotFoundError e) {
+                    XposedBridge.log("red IjkMediaPlayer not found");
+                }
+
+                try {
+                    XposedHelpers.findAndHookMethod("com.xingin.redplayercore.RedPlayerCore", lpparam.classLoader, "initPlayer", Context.class, "com.xingin.redplayercore.RedLibLoader", hookInit);
+                    XposedHelpers.findAndHookMethod("com.xingin.redplayercore.RedPlayerCore", lpparam.classLoader, "setSpeed", float.class, hookSetSpeed);
+                    XposedBridge.log("hooked red RedPlayerCore");
+                } catch (XposedHelpers.ClassNotFoundError e) {
+                    XposedBridge.log("red RedPlayerCore not found");
+                }
+
+                first = XposedHelpers.findAndHookMethod("java.util.concurrent.ConcurrentHashMap", lpparam.classLoader, "get", Object.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+                        if ("followfeed_doubleline".equals(param.args[0])) {
+                            ConcurrentHashMap hashMap = (ConcurrentHashMap) param.thisObject;
+                            hashMap.compute("followfeed_doubleline", (k, v) -> {
+                                if (v == null) {
+                                    return v;
+                                } else {
+                                    try {
+                                        Method method = XposedHelpers.findMethodExact(v.getClass(), "setValue", String.class);
+                                        method.invoke(v, "0");
+                                        XposedBridge.log("hooked red doubleline config");
+                                        first.unhook();
+                                        return v;
+                                    } catch (InvocationTargetException e) {
+                                        throw new RuntimeException(e);
+                                    } catch (IllegalAccessException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                }
+                            });
+                        }
                     }
                 });
-                XposedBridge.log("hooked xhs initPlayer");
+
             } else if (wb) {
                 float[] speedConfig = {getSpeedConfig()};
 
