@@ -1,0 +1,53 @@
+name: Build and Release Module
+
+on:
+  workflow_dispatch: # Allows you to click a button to run it manually
+  push:
+    tags:
+      - 'v*' # Automatically runs if you create a release tag like v1.0.0
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build APK (Debug)
+        # We use Debug to avoid keystore signing errors. It works perfectly for Xposed modules.
+        run: ./gradlew assembleDebug 
+
+      - name: Find the built APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK at: $APK_PATH"
+
+      - name: Upload APK to Artifacts (Backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LSPosed-Module-APK
+          path: ${{ steps.find_apk.outputs.apk_path }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.find_apk.outputs.apk_path }}
+          name: Custom Build - ${{ github.run_number }}
+          tag_name: custom-build-${{ github.run_number }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
