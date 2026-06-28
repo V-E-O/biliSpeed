@@ -619,15 +619,13 @@ public class MainHook implements IXposedHookLoadPackage {
                             StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
                             for (int i = 2; i <= 7 && i < stackTraceElements.length; i++) {
                                 if ("setCustomData".equals(stackTraceElements[i].getMethodName())) {
-                                    XposedHelpers.findAndHookMethod(stackTraceElements[i + 1].getClassName(), lpparam.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+                                    XposedHelpers.findAndHookMethod(stackTraceElements[i + 4].getClassName(), lpparam.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
                                         @Override
                                         protected void beforeHookedMethod(MethodHookParam param) {
                                             Message msg = (Message) param.args[0];
-                                            if (msg.what == 6) {
-                                                Message speedMsg = new Message();
-                                                speedMsg.what = 27;
-                                                speedMsg.obj = getSpeedConfig();
-                                                XposedHelpers.callMethod(param.thisObject, "handleMessage", speedMsg);
+                                            if (msg.what == 26) {
+                                                Object config = getSpeedConfig();
+                                                msg.obj = config instanceof Number ? ((Number) config).floatValue() : 1.5f;
                                             }
                                         }
                                     });
